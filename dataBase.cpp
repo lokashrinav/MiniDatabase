@@ -35,27 +35,38 @@ struct Table {
     uint32_t num_rows;
     void* pages[100];
 };
-
-int row_input(Table table, int row_num) {
-    int page_num = row_num / 100;
-    if(table.pages[page_num] == NULL) {
-        table.pages[page_num] = malloc(4096);
+/*
+void* row_input(Table* table, int row_num) {
+    uint32_t page_num = row_num / 100;
+    void* page = table->pages[page_num];
+    if(page == NULL) {
+        page = malloc(4096);
     }
-    int row_num = row_num % 100;
-    return page_num * 291 + row_num;
-}
+    uint32_t row_num = row_num % 100;
+    return row_num * 291 + page;
+}*/
 
 Table* create_table() {
     Table* table = new Table();
     table->num_rows = 0;
+    for (int i = 0; i < 100; i++) {
+        table->pages[i] = NULL;
+    }
     return table;
 }
 
-int insert(int id, string username, string email) {
-    Row row;
-    row.id = id;
-    row.username = username;
-    row.email = email;
+int insert(int id, string username, string email, Table* table, int row_num) {
+    void* page = table->pages[row_num / 100];
+    if (page == NULL) {
+        page = malloc(4096);
+        table->pages[row_num / 100] = page;
+    }
+    Row* row = (Row*)((char*)page + (row_num % 100) * sizeof(Row));
+    row->id = id;
+    strcpy(row->username, username.c_str());
+    strcpy(row->email, email.c_str());
+    table->num_rows++;
+    return 0;
 }
 
 int dot_command(string input) {
@@ -76,6 +87,8 @@ int normal_command(string input) {
             cout << "Error: Missing arguments for 'insert' command." << endl;
             return 0;
         }
+        Table* table = create_table();
+        insert(stoi(second_word), third_word, fourth_word, table, table->num_rows);
     }
     else if(first_word == "select") {
         cout << "Invalid Command" << endl;
