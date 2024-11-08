@@ -31,23 +31,39 @@ struct Row {
     char email[32];
 };
 
-struct Page {
-    uint32_t page_num;
-    uint32_t num_rows;
-
-};
-
 struct Table {
     uint32_t num_rows;
     void* pages[100];
 };
 
 int row_input(Table table, int row_num) {
+    int page_num = row_num / 100;
+    if(table.pages[page_num] == NULL) {
+        table.pages[page_num] = malloc(4096);
+    }
+    int row_num = row_num % 100;
+    return page_num * 291 + row_num;
+}
 
+Table* create_table() {
+    Table* table = new Table();
+    table->num_rows = 0;
+    return table;
+}
+
+int insert(int id, string username, string email) {
+    Row row;
+    row.id = id;
+    row.username = username;
+    row.email = email;
 }
 
 int dot_command(string input) {
-    return 1;
+    if(input == ".exit") {
+        exit(0);
+    } else {
+        return 0;
+    }
 }
 
 int normal_command(string input) {
