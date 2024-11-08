@@ -2,28 +2,11 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-using namespace std;
+#include <cstdlib>
+#include <cstdint>
+#include <cstring>
 
-int main() {
-    string command;
-    while(true) {
-        cout << ">" << endl;
-        getline(cin, command);
-        if(command == ".exit") {
-            break;
-        } else if(command[0] == '.') {
-            if(dot_command(command)) {
-                continue;
-            } else {
-                cout << "Unrecognized command '" << command << "'." << endl;
-            }
-        } else {
-            if(normal_command(command)) {
-                return 1;
-            }
-        }
-    }
-}
+using namespace std;
 
 struct Row {
     uint32_t id;
@@ -35,15 +18,32 @@ struct Table {
     uint32_t num_rows;
     void* pages[100];
 };
-/*
+
 void* row_input(Table* table, int row_num) {
     uint32_t page_num = row_num / 100;
     void* page = table->pages[page_num];
     if(page == NULL) {
         page = malloc(4096);
+        table->pages[page_num] = page;
     }
-    uint32_t row_num = row_num % 100;
-    return row_num * 291 + page;
+    uint32_t row_offset = row_num % 100;
+    cout << sizeof(Row) << endl;
+    return row_offset * sizeof(Row) + (char*)page;
+}
+/*
+void* row_input(Table* table, int row_num) {
+    uint32_t page_num = row_num / 100;
+    void* page = table->pages[page_num];
+    if (page == NULL) {
+        page = malloc(4096);
+        if (page == NULL) {
+            cerr << "Error: Memory allocation failed." << endl;
+            exit(1);
+        }
+        table->pages[page_num] = page;
+    }
+    uint32_t row_offset = row_num % 100;
+    return (char*)page + row_offset * sizeof(Row);
 }*/
 
 Table* create_table() {
@@ -55,7 +55,7 @@ Table* create_table() {
     return table;
 }
 
-int insert(int id, string username, string email, Table* table, int row_num) {
+int insert( Table* table, int id, string username, string email, int row_num) {
     void* page = table->pages[row_num / 100];
     if (page == NULL) {
         page = malloc(4096);
@@ -63,8 +63,10 @@ int insert(int id, string username, string email, Table* table, int row_num) {
     }
     Row* row = (Row*)((char*)page + (row_num % 100) * sizeof(Row));
     row->id = id;
-    strcpy(row->username, username.c_str());
-    strcpy(row->email, email.c_str());
+    strncpy(row->username, username.c_str(), sizeof(row->username) - 1);
+    row->username[sizeof(row->username) - 1] = '\0'; 
+    strncpy(row->email, email.c_str(), sizeof(row->email) - 1);
+    row->email[sizeof(row->email) - 1] = '\0'; 
     table->num_rows++;
     return 0;
 }
@@ -77,7 +79,16 @@ int dot_command(string input) {
     }
 }
 
-int normal_command(string input) {
+void select_all(Table* table) {
+    for (int i = 0; i < table->num_rows; i++) {
+        void* row_location = row_input(table, i);
+        Row row;
+        memcpy(&row, row_location, sizeof(Row));
+        cout << row.id << " " << row.username << " " << row.email << endl;
+    }
+}
+
+int normal_command(string input, Table* table) {
     istringstream iss(input);
     string first_word, second_word, third_word, fourth_word;
     iss >> first_word;
@@ -87,13 +98,34 @@ int normal_command(string input) {
             cout << "Error: Missing arguments for 'insert' command." << endl;
             return 0;
         }
-        Table* table = create_table();
-        insert(stoi(second_word), third_word, fourth_word, table, table->num_rows);
+        insert(table, stoi(second_word), third_word, fourth_word, table->num_rows);
     }
     else if(first_word == "select") {
-        cout << "Invalid Command" << endl;
+        select_all(table);
     }
     else {
         cout << "Invalid Command" << endl;
+    }
+    return 0;
+}
+
+
+int main() {
+    Table* table = create_table();
+    string command;
+    while(true) {
+        cout << ">" << " ";
+        getline(cin, command);
+        if(command == ".exit") {
+            break;
+        } else if(command[0] == '.') {
+            if(dot_command(command)) {
+                continue;
+            } else {
+                cout << "Unrecognized command '" << command << "'." << endl;
+            }
+        } else {
+            normal_command(command, table);
+        }
     }
 }
