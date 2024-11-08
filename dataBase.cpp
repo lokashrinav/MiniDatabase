@@ -29,41 +29,56 @@ struct Table {
 };
 
 Table* open_db(const char* filename) {
-    Pager pager = create_pager(filename);
-    uint32_t num_rows = pager.file_length / sizeof(Row);
+    Pager* pager = create_pager(filename);
+    uint32_t num_rows = pager->file_length / sizeof(Row);
     Table* table = new Table();
     table->num_rows = num_rows;
-    table->pager = &pager;
+    table->pager = pager;
     return table;
 }
 
-Pager create_pager(const char* filename) {
+Pager* create_pager(const char* filename) {
     int file_descripter = open(filename, _O_RDWR | _O_CREAT, _S_IWRITE | _S_IREAD);
     if(file_descripter == -1) {
         cerr << "Unable to open file" << endl;
         exit(1);
     }
     off_t file_length = _lseek(file_descripter, 0, SEEK_END);
-    Pager pager;
-    pager.file_descripter = file_descripter;
-    pager.file_length = file_length;
+    Pager* pager;
+    pager->file_descripter = file_descripter;
+    pager->file_length = file_length;
     for(int i = 0; i < 100; i++) {
-        pager.pages[i] = NULL;
+        pager->pages[i] = NULL;
     }
     return pager;
 }
 
 void* row_input(Table* table, int row_num) {
     uint32_t page_num = row_num / 100;
-    void* page = table->pages[page_num];
-    if(page == NULL) {
-        page = malloc(4096);
-        table->pages[page_num] = page;
-    }
+    void* page = get_page(table->pager, row_num);
     uint32_t row_offset = row_num % 100;
     cout << sizeof(Row) << endl;
     return row_offset * sizeof(Row) + (char*)page;
 }
+
+void* get_page(Pager* pager, int row_num) {
+    uint32_t page_num = row_num / 100;
+    void* page = pager->pages[page_num];
+    if(page == NULL) {
+        page = malloc(4096);
+        uint32_t num_pages = pager->file_length / 4096;
+        if((pager->file_length / 4096) % 100) {
+            num_pages++;
+        }
+        if(page_num <= num_pages) {
+            lseek(pager->file_descripter, page_num * 4096, SEEK_SET);
+            long bytes_read = read(pager->file_descripter, page, 4096);
+        }
+        pager->pages[page_num] = page;
+    }
+    return pager->pages[page_num];
+}
+
 /*
 void* row_input(Table* table, int row_num) {
     uint32_t page_num = row_num / 100;
@@ -80,7 +95,7 @@ void* row_input(Table* table, int row_num) {
     return (char*)page + row_offset * sizeof(Row);
 }*/
 
-int insert( Table* table, int id, string username, string email, int row_num) {
+int insert(Table* table, int id, string username, string email, int row_num) {
     void* page = table->pages[row_num / 100];
     if (page == NULL) {
         page = malloc(4096);
