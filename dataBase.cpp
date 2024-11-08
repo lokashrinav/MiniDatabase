@@ -10,8 +10,8 @@ using namespace std;
 
 struct Row {
     uint32_t id;
-    char username[255];
-    char email[32];
+    char username[256];
+    char email[33];
 };
 
 struct Table {
@@ -96,6 +96,22 @@ int normal_command(string input, Table* table) {
         iss >> second_word >> third_word >> fourth_word;
         if(iss.fail() || second_word.empty() || third_word.empty() || fourth_word.empty()) {
             cout << "Error: Missing arguments for 'insert' command." << endl;
+            return 0;
+        }
+        if(table->num_rows >= 100 * (4096/sizeof(Row))) {
+            cout << "Error: Table is full." << endl;
+            return 0;
+        }
+        if(stoi(second_word) < 0 || stoi(second_word) > 4294967295) {
+            cout << "Error: ID must be positive and lower" << endl;
+            return 0;
+        }
+        if(third_word.length() >= 256) {
+            cout << "Error: Username must be less than 256 characters" << endl;
+            return 0;
+        }
+        if(fourth_word.length() >= 33) {
+            cout << "Error: Email must be less than 33 characters" << endl;
             return 0;
         }
         insert(table, stoi(second_word), third_word, fourth_word, table->num_rows);
