@@ -7,7 +7,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <sys/stat.h>
-
+#include <io.h>  
 
 using namespace std;
 
@@ -38,7 +38,19 @@ Table* open_db(const char* filename) {
 }
 
 Pager create_pager(const char* filename) {
-    int file_descripter = open(filename, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
+    int file_descripter = open(filename, _O_RDWR | _O_CREAT, _S_IWRITE | _S_IREAD);
+    if(file_descripter == -1) {
+        cerr << "Unable to open file" << endl;
+        exit(1);
+    }
+    off_t file_length = _lseek(file_descripter, 0, SEEK_END);
+    Pager pager;
+    pager.file_descripter = file_descripter;
+    pager.file_length = file_length;
+    for(int i = 0; i < 100; i++) {
+        pager.pages[i] = NULL;
+    }
+    return pager;
 }
 
 void* row_input(Table* table, int row_num) {
@@ -84,7 +96,7 @@ int insert( Table* table, int id, string username, string email, int row_num) {
     return 0;
 }
 
-int dot_command(string input) {
+int dot_command(string input, Table* table) {
     if(input == ".exit") {
         exit(0);
     } else {
@@ -139,16 +151,14 @@ int normal_command(string input, Table* table) {
 }
 
 
-int main() {
-    Table* table = create_table();
+int main(int argc, char* argv[]) {
     string command;
+    Table* table = open_db(argv[1]);
     while(true) {
         cout << ">" << " ";
         getline(cin, command);
-        if(command == ".exit") {
-            break;
-        } else if(command[0] == '.') {
-            if(dot_command(command)) {
+        if(command[0] == '.') {
+            if(dot_command(command, table)) {
                 continue;
             } else {
                 cout << "Unrecognized command '" << command << "'." << endl;
