@@ -5,6 +5,9 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
+#include <fcntl.h>
+#include <sys/stat.h>
+
 
 using namespace std;
 
@@ -14,10 +17,29 @@ struct Row {
     char email[33];
 };
 
-struct Table {
-    uint32_t num_rows;
+struct Pager {
+    int file_descripter;
+    uint32_t file_length;
     void* pages[100];
 };
+
+struct Table {
+    uint32_t num_rows;
+    Pager* pager;
+};
+
+Table* open_db(const char* filename) {
+    Pager pager = create_pager(filename);
+    uint32_t num_rows = pager.file_length / sizeof(Row);
+    Table* table = new Table();
+    table->num_rows = num_rows;
+    table->pager = &pager;
+    return table;
+}
+
+Pager create_pager(const char* filename) {
+    int file_descripter = open(filename, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
+}
 
 void* row_input(Table* table, int row_num) {
     uint32_t page_num = row_num / 100;
@@ -45,15 +67,6 @@ void* row_input(Table* table, int row_num) {
     uint32_t row_offset = row_num % 100;
     return (char*)page + row_offset * sizeof(Row);
 }*/
-
-Table* create_table() {
-    Table* table = new Table();
-    table->num_rows = 0;
-    for (int i = 0; i < 100; i++) {
-        table->pages[i] = NULL;
-    }
-    return table;
-}
 
 int insert( Table* table, int id, string username, string email, int row_num) {
     void* page = table->pages[row_num / 100];
